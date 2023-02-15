@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    Description: Environment identifier
+  Identifier:
+    Type: String
+    Default: Streetlight
+    Description: Unique identifier for resources created in PascalCase
+  IdentifierLower:
+    Type: String
+    Default: streetlight
+    Description: Lowercase value of Identifier
+
+Resources:
+  AdminGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub '${Identifier}AdminGroup'
+      Policies:
+        - PolicyName: AssumeAdminRoles
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sts:AssumeRole"
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Role: !Sub ${IdentifierLower}-admin-role
+  
+  PipelineGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub '${Identifier}PipelineGroup'
+      Policies:
+        - PolicyName: AssumePipelineRoles
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sts:AssumeRole"
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Role: !Sub ${IdentifierLower}-pipeline-role
+
+  PipelineUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub '${IdentifierLower}-pipeline-user'
+      Groups:
+        - !Ref PipelineGroup
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: !Ref Identifier
+
+  PipelineUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      Serial: 1
+      Status: Active
+      UserName: !Ref PipelineUser
+
+  PipelineUserSecretKey:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${Identifier}PipelineUserSecretKey
+      SecretString: !Sub '{"aws_access_key_id": "${PipelineUserAccessKey}", "aws_secret_access_key": "${PipelineUserAccessKey.SecretAccessKey}"}'
+
+Outputs:
+  AdminGroup:
+    Description: ARN of the Admin IAM Group
+    Value: !GetAtt AdminGroup.Arn
+
+  PipelineGroup:
+    Description: ARN of the Pipeline IAM Group
+    Value: !GetAtt PipelineGroup.Arn
+
+  PipelineUser:
+    Description: ARN of the Pipeline IAM User
+    Value: !GetAtt PipelineUser.Arn
+
+  PipelineUserSecretKey:
+    Description: AWS Access Key and Secret Key of pipeline user.
+    Value: !Ref PipelineUserSecretKey
