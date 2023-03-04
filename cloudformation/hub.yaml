@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Description: Standard resources for management accounts
 
 Parameters:
   Environment:
@@ -13,6 +14,9 @@ Parameters:
     Type: String
     Default: streetlight
     Description: Lowercase value of Identifier
+  StubAccountId:
+    Type: String
+    Description: Account ID of the "stub" account with roles to assume
 
 Resources:
   AdminGroup:
@@ -20,34 +24,30 @@ Resources:
     Properties:
       GroupName: !Sub '${Identifier}AdminGroup'
       Policies:
-        - PolicyName: AssumeAdminRoles
+        - PolicyName: !Sub 'Assume${Identifier}AdminRole'
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
                   - "sts:AssumeRole"
-                Resource: "*"
-                Condition:
-                  StringEquals:
-                    aws:ResourceTag/Role: !Sub ${IdentifierLower}-admin-role
-  
+                Resource:  
+                  - !Sub "arn:aws:iam::${StubAccountId}:role/${Identifier}AdminRole"
+
   PipelineGroup:
     Type: AWS::IAM::Group
     Properties:
-      GroupName: !Sub '${Identifier}PipelineGroup'
+      GroupName: !Sub '${Identifier}PipelinenGroup'
       Policies:
-        - PolicyName: AssumePipelineRoles
+        - PolicyName: !Sub 'Assume${Identifier}PipelineRole'
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
                   - "sts:AssumeRole"
-                Resource: "*"
-                Condition:
-                  StringEquals:
-                    aws:ResourceTag/Role: !Sub ${IdentifierLower}-pipeline-role
+                Resource:  
+                  - !Sub "arn:aws:iam::${StubAccountId}:role/${Identifier}PipelineRole"  
 
   PipelineUser:
     Type: AWS::IAM::User
@@ -75,14 +75,6 @@ Resources:
       SecretString: !Sub '{"aws_access_key_id": "${PipelineUserAccessKey}", "aws_secret_access_key": "${PipelineUserAccessKey.SecretAccessKey}"}'
 
 Outputs:
-  AdminGroup:
-    Description: ARN of the Admin IAM Group
-    Value: !GetAtt AdminGroup.Arn
-
-  PipelineGroup:
-    Description: ARN of the Pipeline IAM Group
-    Value: !GetAtt PipelineGroup.Arn
-
   PipelineUser:
     Description: ARN of the Pipeline IAM User
     Value: !GetAtt PipelineUser.Arn

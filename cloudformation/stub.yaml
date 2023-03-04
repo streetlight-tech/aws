@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Description: Standard resources for workload accounts
 
 Parameters:
   Environment:
@@ -25,21 +26,6 @@ Conditions:
   NoExpiration: !Equals [!Ref ExpirationDays, ""]
 
 Resources:
-  ApiGatewayLoggingRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: ApiGatewayLoggingRole
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - 'sts:AssumeRole'
-            Principal:
-              Service: apigateway.amazonaws.com
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
-
   AdminRole:
     Type: AWS::IAM::Role
     Properties:
