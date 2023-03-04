@@ -209,11 +209,15 @@ Resources:
 
 Outputs:
   CloudFormationRole:
-    Description: ARN of the IAM Role(CloudFormationRole)
+    Description: ARN of the IAM Role AdminRole
+    Value: !GetAtt AdminRole.Arn
+
+  CloudFormationRole:
+    Description: ARN of the IAM Role CloudFormationRole
     Value: !GetAtt CloudFormationRole.Arn
 
   PipelineRole:
-    Description: ARN of the IAM Role(PipelineRole)
+    Description: ARN of the IAM Role PipelineRole
     Value: !GetAtt PipelineRole.Arn
 
   ArtifactsBucket:
