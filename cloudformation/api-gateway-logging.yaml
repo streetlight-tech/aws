@@ -2,10 +2,10 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Role to enable API Gateway logging to CloudWatch
 
 Parameters:
-  Environment:
+  RoleName:
     Type: String
-    Default: prod
-    Description: ApiGatewayLoggingRole
+    Default: ApiGatewayLoggingRole
+    Description: Name to assign to role
 
 Resources:
   ApiGatewayLoggingRole:
