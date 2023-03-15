@@ -1,0 +1,225 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Standard resources for workload accounts
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    Description: Environment identifier
+  Identifier:
+    Type: String
+    Default: Streetlight
+    Description: Identifier for pipeline roles. Roles will be named ${Identifier}CloudFormationRole and ${Identifier}PipelineRole.
+  IdentifierLower:
+    Type: String
+    Default: streetlight
+    Description: Lowercase identifier used for bucket name for pipeline artifacts. Bucket name will be ${IdentifierLower}-pipeline-artifacts-${AWS::AccountId}.
+  ExpirationDays:
+    Type: String
+    Default: 7
+    Description: Number of days after which objects are deleted from the artifacts bucket. Leave blank to keep objects indefinitely.
+  HubAccountId:
+    Type: String
+    Description: Account ID of the "hub" account where all IAM users will be created
+
+Conditions:
+  NoExpiration: !Equals [!Ref ExpirationDays, ""]
+
+Resources:
+  AdminRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Identifier}AdminRole'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: !Ref Identifier
+        - Key: Role
+          Value: !Sub '${IdentifierLower}-admin-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${HubAccountId}:root'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Join:
+          - ''
+          - - !Ref IdentifierLower
+            - '-pipeline-artifacts-'
+            - !Ref AWS::AccountId
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: !Ref Identifier
+      LifecycleConfiguration:
+        Rules:
+          - Id: Expiration
+            ExpirationInDays: !If [NoExpiration, "7", !Ref ExpirationDays]
+            Status: !If [NoExpiration, "Disabled", Enabled]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  ArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Effect: "Deny"
+            Action: "s3:*"
+            Principal: "*"
+            Resource:
+              - !Join [ '',[ !GetAtt ArtifactsBucket.Arn, '/*' ] ]
+              - !GetAtt ArtifactsBucket.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+          - Effect: "Allow"
+            Action:
+              - 's3:GetObject*'
+              - 's3:PutObject*'
+              - 's3:DeleteObject*'
+              - 's3:GetBucket*'
+              - 's3:List*'
+            Resource:
+              - !Join ['',[!GetAtt ArtifactsBucket.Arn, '/*']]
+              - !GetAtt ArtifactsBucket.Arn
+            Principal:
+              AWS:
+                - !GetAtt CloudFormationRole.Arn
+
+  CloudFormationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Join:
+          - ''
+          - - !Ref Identifier
+            - 'CloudFormationRole'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: !Ref Identifier
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: GrantCloudFormationServerlessAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'apigateway:POST'
+                Resource: 
+                  - !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis'
+              - Effect: Allow
+                Action:
+                  - 'apigateway:DELETE'
+                  - 'apigateway:GET'
+                  - 'apigateway:PATCH'
+                  - 'apigateway:POST'
+                Resource: 
+                  - !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/*'
+              - Effect: Allow
+                Action: 'cloudformation:CreateChangeSet'
+                Resource: 
+                  - !Sub 'arn:aws:cloudformation:${AWS::Region}:aws:stack/*'
+                  - !Sub 'arn:aws:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31'
+              - Effect: Allow
+                Action:
+                  -  'iam:*'
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/*'
+              - Effect: Allow
+                Action:
+                  -  'lambda:*'
+                Resource:
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*'
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Identifier}PipelineRole'
+      Tags:
+        - Key: Role
+          Value: !Sub ${IdentifierLower}-pipeline--role
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: !Ref Identifier
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${HubAccountId}:root'
+      Policies:
+        - PolicyName: !Sub '${Identifier}PipelinePolicy'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 'iam:PassRole'
+                Resource:
+                    - !GetAtt CloudFormationRole.Arn
+              - Effect: Allow
+                Action:
+                  - "cloudformation:CreateChangeSet"
+                  - "cloudformation:DescribeChangeSet"
+                  - "cloudformation:ExecuteChangeSet"
+                  - "cloudformation:DeleteStack"
+                  - "cloudformation:DescribeStackEvents"
+                  - "cloudformation:DescribeStacks"
+                  - "cloudformation:GetTemplate"
+                  - "cloudformation:GetTemplateSummary"
+                  - "cloudformation:DescribeStackResource"
+                Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*/*'
+              - Effect: Allow
+                Action:
+                  - 's3:DeleteObject'
+                  - 's3:GetObject*'
+                  - 's3:PutObject*'
+                  - 's3:GetBucket*'
+                  - 's3:List*'
+                Resource:
+                    - !Join [ '',[ !GetAtt ArtifactsBucket.Arn, '/*' ] ]
+                    - !GetAtt ArtifactsBucket.Arn
+
+Outputs:
+  CloudFormationRole:
+    Description: ARN of the IAM Role AdminRole
+    Value: !GetAtt AdminRole.Arn
+
+  CloudFormationRole:
+    Description: ARN of the IAM Role CloudFormationRole
+    Value: !GetAtt CloudFormationRole.Arn
+
+  PipelineRole:
+    Description: ARN of the IAM Role PipelineRole
+    Value: !GetAtt PipelineRole.Arn
+
+  ArtifactsBucket:
+    Description: ARN of the Artifacts bucket
+    Value: !GetAtt ArtifactsBucket.Arn
