@@ -138,6 +138,7 @@ Resources:
                   - 'apigateway:GET'
                   - 'apigateway:PATCH'
                   - 'apigateway:POST'
+                  - 'apigateway:PUT'
                 Resource: 
                   - !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/*'
               - Effect: Allow
@@ -154,7 +155,27 @@ Resources:
                 Action:
                   -  'lambda:*'
                 Resource:
-                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*'
+                  - '*'
+              - Effect: Allow
+                Action:
+                  -  's3:*'
+                Resource:
+                  - '*'
+              - Effect: Allow
+                Action:
+                  -  'dynamodb:*'
+                Resource:
+                  - '*'
+              - Effect: Allow
+                Action:
+                  - 'cloudfront:*'
+                Resource:
+                  - '*'
+              - Effect: Allow
+                Action:
+                  - 'cognito-idp:*'
+                Resource:
+                  - '*'
 
   PipelineRole:
     Type: AWS::IAM::Role
@@ -206,6 +227,11 @@ Resources:
                 Resource:
                     - !Join [ '',[ !GetAtt ArtifactsBucket.Arn, '/*' ] ]
                     - !GetAtt ArtifactsBucket.Arn
+              - Effect: Allow
+                Action:
+                  - 'cloudfront:CreateInvalidation'
+                Resource:
+                  - '*'
 
 Outputs:
   CloudFormationRole:

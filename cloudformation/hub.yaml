@@ -14,9 +14,12 @@ Parameters:
     Type: String
     Default: streetlight
     Description: Lowercase value of Identifier
-  StubAccountId:
+  AdminRoles:
     Type: String
-    Description: Account ID of the "stub" account with roles to assume
+    Description: Comma separated list of admin role ARNs
+  PipelineRoles:
+    Type: String
+    Description: Comma separated list of pipeline role ARNs
 
 Resources:
   AdminGroup:
@@ -31,8 +34,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - "sts:AssumeRole"
-                Resource:  
-                  - !Sub "arn:aws:iam::${StubAccountId}:role/${Identifier}AdminRole"
+                Resource:  !Split [ ',', !Ref AdminRoles ]
 
   PipelineGroup:
     Type: AWS::IAM::Group
@@ -46,8 +48,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - "sts:AssumeRole"
-                Resource:  
-                  - !Sub "arn:aws:iam::${StubAccountId}:role/${Identifier}PipelineRole"  
+                Resource:  !Split [ ',', !Ref PipelineRoles ]
 
   PipelineUser:
     Type: AWS::IAM::User
