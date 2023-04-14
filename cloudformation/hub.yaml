@@ -22,6 +22,28 @@ Parameters:
     Description: Comma separated list of pipeline role ARNs
 
 Resources:
+  AdminRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Identifier}AdminRole'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: !Ref Identifier
+        - Key: Role
+          Value: !Sub '${IdentifierLower}-admin-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
   AdminGroup:
     Type: AWS::IAM::Group
     Properties:
@@ -35,6 +57,11 @@ Resources:
                 Action:
                   - "sts:AssumeRole"
                 Resource:  !Split [ ',', !Ref AdminRoles ]
+              - Effect: Allow
+                Action:
+                  - "sts:AssumeRole"
+                Resource:  !GetAtt AdminRole.Arn
+
 
   PipelineGroup:
     Type: AWS::IAM::Group
