@@ -100,6 +100,16 @@ Resources:
             Principal:
               AWS:
                 - !GetAtt CloudFormationRole.Arn
+          - Effect: "Allow"
+            Action:
+              - 's3:GetObject*'
+            Resource:
+              - !Join ['',[!GetAtt ArtifactsBucket.Arn, '/*']]
+            Principal:
+              Service: 'serverlessrepo.amazonaws.com'
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
 
   CloudFormationRole:
     Type: AWS::IAM::Role
