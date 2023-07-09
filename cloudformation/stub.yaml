@@ -242,6 +242,13 @@ Resources:
                   - 'cloudfront:CreateInvalidation'
                 Resource:
                   - '*'
+              - Effect: Allow
+                Action:
+                  - 'serverlessrepo:CreateApplication'
+                  - 'serverlessrepo:UpdateApplication'
+                  - 'serverlessrepo:CreateApplicationVersion'
+                Resource:
+                  - '*'
 
 Outputs:
   CloudFormationRole:
