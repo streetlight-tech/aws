@@ -205,6 +205,12 @@ Resources:
             Action:
               - 'sts:AssumeRole'
             Principal:
+              AWS:
+                  - !GetAtt PipelineUser.Arn
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Principal:
               AWS: !Sub 'arn:aws:iam::${HubAccountId}:root'
       Policies:
         - PolicyName: !Sub '${Identifier}PipelinePolicy'
@@ -249,6 +255,53 @@ Resources:
                   - 'serverlessrepo:CreateApplicationVersion'
                 Resource:
                   - '*'
+
+  PipelineUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName:
+        Fn::Join:
+          - ''
+          - - !Ref Identifier
+            - !Ref Environment
+            - 'PipelineUser-'
+            - !Ref AWS::AccountId
+      Policies:
+        - PolicyName: AssumeRoles
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sts:AssumeRole"
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Role: !Sub ${IdentifierLower}-pipeline--role
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  PipelineUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      Serial: 1
+      Status: Active
+      UserName: !Ref PipelineUser
+
+  PipelineUserSecretKey:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name:
+        Fn::Join:
+          - ''
+          - - !Ref Identifier
+            - !Ref Environment
+            - '-PipelineUser'
+      SecretString: !Sub '{"aws_access_key_id": "${PipelineUserAccessKey}", "aws_secret_access_key": "${PipelineUserAccessKey.SecretAccessKey}"}'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
 
 Outputs:
   CloudFormationRole:
